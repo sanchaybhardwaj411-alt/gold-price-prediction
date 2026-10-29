@@ -1,0 +1,2 @@
+# This folder holds the trained model files.
+# Run "python src/train_model.py" to create them.
