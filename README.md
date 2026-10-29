@@ -14,14 +14,17 @@ Built with Python, Flask, scikit-learn and Chart.js.
 
 | Panel | What it answers |
 |-------|-----------------|
-| **Live prices** | What does 1 gram / 1 kg / 10 gram (2 tola) cost right now, in Rs? How much has it moved in the last month and the last 12 months? |
+| **Live rate cards** | What does 1 gram / 10 gram (2 tola) / 1 kg cost right now, in Rs? How has the price moved since the page was opened? |
 | **Price history** | Where the price came from - monthly data from the year 2000 up to today, gold and silver on one chart |
-| **AI forecast** | Where the model thinks the price is going over the next 12 months, in Rs per gram and per kg, with a month by month table |
-| **Model accuracy** | How far off the model was on 60 months it had never seen, and whether it beats a plain "next month = this month" guess |
+| **Expected price** | Where the model thinks the price is going after 1, 3, 6 and 12 months, in Rs per gram and per kg |
+| **12 month outlook** | The same forecast drawn as a chart, with the actual history leading up to it |
+| **Model accuracy** | How far off each model was on 60 months it had never seen, and whether it beats a plain "next month = this month" guess |
 
-The prices refresh by themselves every 60 seconds, and **Refresh now** forces a new
-call to the API. If the internet goes off, the dashboard keeps working on the last
-prices it managed to fetch and says so in a red banner.
+Everything fits on one screen, so there is no scrolling during a demo. The rate refreshes
+by itself every 15 seconds - the header counts down to the next call and the price flashes
+green or red when it changes - and **Refresh** forces an immediate call to the API. If the
+internet goes off, the dashboard keeps working on the last prices it managed to fetch and
+says so in a red banner.
 
 ---
 
@@ -164,5 +167,5 @@ Student learning project. Prices are indicative and the forecast is statistical.
 
 ---
 
-**Sanchay Bhardwaj** · B.S.A. College of Engineering & Technology, Mathura ·
+**Developed by Sanchay Bhardwaj** · B.S.A. College of Engineering & Technology, Mathura ·
 Computer Science & Engineering, Session 2026-27 · Project guide: **Mrs. Ashna Thakur**

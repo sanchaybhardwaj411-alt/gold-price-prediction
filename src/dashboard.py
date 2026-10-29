@@ -8,9 +8,11 @@
 # for the next 12 months. Nothing is uploaded anywhere - the model runs locally.
 import json
 import os
+import socket
 import threading
 import time
 import webbrowser
+from collections import deque
 
 import joblib
 import pandas as pd
@@ -24,11 +26,13 @@ METRICS_PATH = os.path.join(ROOT, "model", "metrics.json")
 HOST, PORT = "127.0.0.1", 8000
 GRAMS = live_prices.GRAMS_PER_OUNCE
 FORECAST_MONTHS = 12
-LIVE_CACHE_SECONDS = 45
+LIVE_CACHE_SECONDS = 12
 
 app = Flask(__name__)
 _live_lock = threading.Lock()
 _live = {"ts": 0.0, "data": None}
+# the last minute or so of prices, just to show the tick moving on screen
+TICKS = deque(maxlen=60)
 
 
 def usd_to_inr_gram(usd_oz, rate):
@@ -136,6 +140,13 @@ def api_summary():
     for metal in ("gold", "silver"):
         usd = metals.get(metal, {}).get("usd_ounce")
         out["metals"][metal] = build_summary(metal, usd, rate)
+
+    gold = out["metals"]["gold"].get("live")
+    silver = out["metals"]["silver"].get("live")
+    if gold and silver and not out["stale"]:
+        TICKS.append({"t": time.strftime("%H:%M:%S"),
+                      "gold": gold["inr_gram"], "silver": silver["inr_gram"]})
+    out["ticks"] = list(TICKS)
     return jsonify(out)
 
 
@@ -157,9 +168,21 @@ def ensure_models():
         train_model.main()
 
 
+def already_running():
+    # Flask allows the port to be reused, so a second copy would quietly start too and
+    # the browser would end up talking to a stale one - check before we bind.
+    with socket.socket() as s:
+        s.settimeout(0.6)
+        return s.connect_ex((HOST, PORT)) == 0
+
+
 def main():
-    ensure_models()
     url = "http://%s:%d" % (HOST, PORT)
+    if already_running():
+        print("Dashboard is already open - just starting the browser.")
+        webbrowser.open(url)
+        return
+    ensure_models()
     print("Gold & Silver Price Predictor dashboard")
     print("  open ", url)
     print("  press Ctrl+C to stop")

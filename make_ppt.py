@@ -85,14 +85,14 @@ SLIDES = [
     ]},
     {"kind": "table", "title": "Results"},
     {"kind": "image", "title": "Application - Live Dashboard", "image": SHOT_LIVE,
-     "caption": "Today's live gold and silver price in rupees per gram, per kg and per 10 gram, "
-                "with the monthly history since 2000."},
-    {"kind": "image", "title": "Application - 12 Month Forecast", "image": SHOT_FORECAST,
-     "caption": "Solid line = actual price, dashed line = model forecast, plus the month by month "
-                "expected price in rupees."},
-    {"kind": "image", "title": "Application - Model Accuracy", "image": SHOT_ACCURACY,
-     "caption": "Error of every model on 60 unseen months, compared against the naive "
-                "'next month = this month' baseline."},
+     "caption": "The complete app on one screen: today's live gold and silver rate in rupees per gram, "
+                "per 10 gram and per kg, the history since 2000, the 12 month outlook and the accuracy table."},
+    {"kind": "image", "title": "Application - History and Forecast", "image": SHOT_FORECAST,
+     "caption": "Top: monthly price history of both metals since 2000. Bottom: solid line is the actual "
+                "price, dashed line is what the model expects for the next 12 months."},
+    {"kind": "image", "title": "Application - Expected Price and Accuracy", "image": SHOT_ACCURACY,
+     "caption": "Top: expected gold and silver price after 1, 3, 6 and 12 months in rupees. "
+                "Bottom: error of every model on 60 unseen months against the naive baseline."},
     {"kind": "bullets", "title": "Conclusion", "bullets": [
         "Random Forest gave the lowest error on both metals and beat the naive baseline.",
         "Predicting returns instead of raw prices made the models reliable on a strongly trending series.",
@@ -189,7 +189,7 @@ def render_pptx(path):
         rect(slide, 0, H - Inches(0.42), W, Inches(0.42), NAVY)
         rect(slide, 0, H - Inches(0.42), Inches(0.14), Inches(0.42), GOLD)
         tf = tb(slide, Inches(0.3), H - Inches(0.42), W - Inches(2.0), Inches(0.42), MSO_ANCHOR.MIDDLE)
-        para(tf, "%s (%s)  |  %s" % (STUDENT, ROLL, COLLEGE), 9, WHITE, first=True)
+        para(tf, "Developed by %s (%s)  |  %s" % (STUDENT, ROLL, COLLEGE), 9, WHITE, first=True)
         tf2 = tb(slide, W - Inches(1.6), H - Inches(0.42), Inches(1.3), Inches(0.42), MSO_ANCHOR.MIDDLE)
         para(tf2, "Slide %d" % n, 9, GOLD, bold=True, align=PP_ALIGN.RIGHT, first=True)
 
@@ -253,11 +253,11 @@ def render_pptx(path):
             from PIL import Image
             iw, ih = Image.open(sl["image"]).size
             max_w = W - Inches(1.6)
-            max_h = H - Inches(2.6)
+            max_h = H - Inches(2.7)
             scale = min(max_w / iw, max_h / ih)
             pw, ph = int(iw * scale), int(ih * scale)
             slide.shapes.add_picture(sl["image"], int((W - pw) / 2), Inches(1.45), pw, ph)
-            tf = tb(slide, Inches(1.0), H - Inches(1.35), W - Inches(2.0), Inches(0.7))
+            tf = tb(slide, Inches(1.0), Inches(1.45) + ph + Inches(0.2), W - Inches(2.0), Inches(0.7))
             para(tf, sl["caption"], 13, MUT, align=PP_ALIGN.CENTER, first=True)
 
         elif kind == "end":
@@ -321,7 +321,7 @@ def render_pdf(path):
         c.setFillColor(NAVY); c.rect(0, 0, PW, 0.42 * inch, fill=1, stroke=0)
         c.setFillColor(GOLD); c.rect(0, 0, 0.14 * inch, 0.42 * inch, fill=1, stroke=0)
         c.setFillColor(WHITE); c.setFont("Helvetica", 9)
-        c.drawString(0.3 * inch, 0.16 * inch, "%s (%s)  |  %s" % (STUDENT, ROLL, COLLEGE))
+        c.drawString(0.3 * inch, 0.16 * inch, "Developed by %s (%s)  |  %s" % (STUDENT, ROLL, COLLEGE))
         c.setFillColor(GOLD); c.setFont("Helvetica-Bold", 9)
         c.drawRightString(PW - 0.3 * inch, 0.16 * inch, "Slide %d" % n)
 
