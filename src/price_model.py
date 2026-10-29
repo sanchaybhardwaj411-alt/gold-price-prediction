@@ -1,11 +1,10 @@
-# gold_model.py
-# Shared model code for the Gold Price Prediction project.
-# Everything the trainer and the GUI need lives here so both stay in sync.
+# price_model.py
+# Shared model code - the trainer and the dashboard both import this file.
 #
-# We do NOT ask the model to guess the raw price (a tree model can never
-# extrapolate a rising trend and it looks broken). Instead the model predicts
-# the month to month RETURN, which stays in a small stable range. To get a price
-# back we multiply last month's price by (1 + predicted return).
+# We do NOT ask the model to guess the raw price. A tree model can never
+# extrapolate a rising trend, so it looks broken. Instead the model predicts the
+# month to month RETURN, which stays in a small stable range. To get a price back
+# we multiply last month's price by (1 + predicted return).
 import os
 
 import numpy as np
@@ -15,52 +14,57 @@ from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA_CSV = os.path.normpath(os.path.join(HERE, "..", "data", "gold_prices.csv"))
+ROOT = os.path.normpath(os.path.join(HERE, ".."))
 FEATURES = ["ret1", "ret2", "ret3", "Month", "Year"]
 
+# model file per metal, so gold and silver never get mixed up
+METALS = {
+    "gold": {
+        "csv": os.path.join(ROOT, "data", "gold_prices.csv"),
+        "job": os.path.join(ROOT, "model", "gold_model.joblib"),
+    },
+    "silver": {
+        "csv": os.path.join(ROOT, "data", "silver_prices.csv"),
+        "job": os.path.join(ROOT, "model", "silver_model.joblib"),
+    },
+}
 
-def load_data():
-    df = pd.read_csv(DATA_CSV)
+
+def load_data(metal):
+    df = pd.read_csv(METALS[metal]["csv"])
     df["Date"] = pd.to_datetime(df["Date"], format="%Y-%m")
     return df[["Date", "Year", "Month", "Price"]].copy()
 
 
 def build_features(df):
     out = df.copy()
-    out["ret"] = out["Price"].pct_change()          # this month's return (the target)
-    out["PrevPrice"] = out["Price"].shift(1)        # needed to turn a return back to a price
-    out["ret1"] = out["ret"].shift(1)               # last 3 returns as clues
+    out["ret"] = out["Price"].pct_change()      # this month's return = the target
+    out["PrevPrice"] = out["Price"].shift(1)    # needed to turn a return into a price
+    out["ret1"] = out["ret"].shift(1)           # the last 3 returns are the clues
     out["ret2"] = out["ret"].shift(2)
     out["ret3"] = out["ret"].shift(3)
-    out = out.dropna().reset_index(drop=True)
-    return out
+    return out.dropna().reset_index(drop=True)
 
 
 def make_xy(df):
     feats = build_features(df)
-    X = feats[FEATURES]
-    y = feats["ret"]
-    return X, y, feats
+    return feats[FEATURES], feats["ret"], feats
 
 
 def _price_metrics(actual_price, prev_price, pred_ret):
-    # turn predicted returns into prices, then score them in dollars (easier to trust)
+    # score in dollars per ounce - easier to trust than a raw return error
     pred_price = prev_price * (1 + pred_ret)
-    rmse = float(np.sqrt(mean_squared_error(actual_price, pred_price)))
     return {
         "MAE": round(float(mean_absolute_error(actual_price, pred_price)), 2),
-        "RMSE": round(rmse, 2),
+        "RMSE": round(float(np.sqrt(mean_squared_error(actual_price, pred_price))), 2),
         "R2": round(float(r2_score(actual_price, pred_price)), 4),
     }
 
 
-def train(df=None, test_months=60):
-    if df is None:
-        df = load_data()
+def train(df, test_months=60):
     X, y, feats = make_xy(df)
     split = len(X) - test_months
-    X_tr, X_te = X.iloc[:split], X.iloc[split:]
-    y_tr, y_te = y.iloc[:split], y.iloc[split:]
+    X_tr, X_te, y_tr, y_te = X.iloc[:split], X.iloc[split:], y.iloc[:split], y.iloc[split:]
     act = feats.iloc[split:]["Price"].values
     prev = feats.iloc[split:]["PrevPrice"].values
 
@@ -78,7 +82,7 @@ def train(df=None, test_months=60):
         if sc["MAE"] < best_mae:
             best_mae, best_name, best_model = sc["MAE"], name, mdl
 
-    # a plain "next month = this month" baseline for honest comparison
+    # plain "next month = this month" so the numbers can be compared honestly
     scores["Naive"] = _price_metrics(act, prev, np.zeros(len(act)))
 
     return {
@@ -96,7 +100,7 @@ def forecast(model, last_prices, start_year, start_month, months_ahead):
     rets = []
     for i in range(len(prices) - 1, 0, -1):
         rets.append(prices[i] / prices[i - 1] - 1)
-    rets = rets[:3]  # rets[0] = most recent return
+    rets = rets[:3]                      # rets[0] = most recent return
     while len(rets) < 3:
         rets.append(0.0)
 
@@ -111,6 +115,5 @@ def forecast(model, last_prices, start_year, start_month, months_ahead):
         preds.append(("%04d-%02d" % (year, month), round(new_price, 2)))
         month += 1
         if month > 12:
-            month = 1
-            year += 1
+            month, year = 1, year + 1
     return preds

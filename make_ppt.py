@@ -1,5 +1,5 @@
 # make_ppt.py
-# Builds the college presentation for the Gold Price Prediction project.
+# Builds the college presentation for the Gold & Silver Price Prediction project.
 # Produces BOTH a real PowerPoint (.pptx) and a PDF mirror (for older Office PCs).
 #   python make_ppt.py
 import os
@@ -8,83 +8,103 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.join(HERE, "docs")
 LOGO = os.path.join(HERE, "assets", "college_logo.jpg")
 LOGO_NAVY = os.path.join(HERE, "assets", "college_logo_navy.png")
-SHOT_PREDICT = os.path.join(DOCS, "screenshot_predict.png")
-SHOT_TRAIN = os.path.join(DOCS, "screenshot_train.png")
+SHOT_LIVE = os.path.join(DOCS, "dashboard_overview.png")
+SHOT_FORECAST = os.path.join(DOCS, "dashboard_forecast.png")
+SHOT_ACCURACY = os.path.join(DOCS, "dashboard_accuracy.png")
 RESULTS_CHART = os.path.join(DOCS, "results_chart.png")
 
-TITLE = "Gold Price Prediction using Machine Learning"
+TITLE = "Live Gold & Silver Price Prediction using Machine Learning"
+SHORT = "Gold & Silver Predictor"
 STUDENT = "Sanchay Bhardwaj"
 ROLL = "2300650100104"
 GUIDE = "Mrs. Ashna Thakur"
 COLLEGE = "B.S.A. College of Engineering & Technology, Mathura"
 DEPT = "Dept. of Computer Science & Engineering   |   Session 2026-27"
 
-# model, MAE, RMSE, R2  (matches model/metrics.json)
+# model, gold MAE, gold R2, silver MAE, silver R2   (matches model/metrics.json)
 MODELS = [
-    ("RandomForest", 32.71, 44.47, 0.9613),
-    ("Linear Regression", 32.91, 44.60, 0.9611),
-    ("Ridge", 33.33, 45.50, 0.9595),
-    ("Naive baseline", 36.14, 47.97, 0.9549),
+    ("Random Forest", 44.34, 0.9910, 0.54, 0.9942),
+    ("Linear Regression", 54.12, 0.9889, 0.62, 0.9909),
+    ("Ridge", 53.54, 0.9889, 0.64, 0.9903),
+    ("Naive baseline", 56.93, 0.9875, 0.64, 0.9897),
 ]
-BEST = "RandomForest"
+BEST = "Random Forest"
+TABLE_HDR = ["Model", "Gold MAE (US$/oz)", "Gold R-sq", "Silver MAE (US$/oz)", "Silver R-sq"]
+NOTE = ("Random Forest wins on both metals and beats the naive baseline. "
+        "Test window: last 60 months, from Oct 2021. Lower MAE and higher R-squared are better.")
 
 SLIDES = [
     {"kind": "title"},
     {"kind": "bullets", "title": "Introduction", "bullets": [
-        "Gold is a globally traded precious metal and a traditional safe-haven asset.",
-        "Its price is affected by demand, inflation, currency value and market sentiment.",
-        "Being able to forecast gold prices helps investors and analysts take better decisions.",
-        "This project builds a Machine Learning model that predicts the monthly price of gold.",
+        "Gold and silver are the two most tracked precious metals, priced in US dollars per troy ounce.",
+        "Their prices move with demand, inflation, the dollar and global market sentiment.",
+        "This project fetches the LIVE price of both metals and converts it into Indian Rupees per gram.",
+        "A Machine Learning model then forecasts the price for the next 12 months.",
+        "Everything is shown on one web dashboard, so the numbers can be read without any training.",
     ]},
     {"kind": "bullets", "title": "Problem Statement", "bullets": [
-        "Given the historical monthly price of gold, predict its price for the coming months.",
+        "Given the historical monthly price of gold and silver, predict their price for the coming months.",
         "This is a supervised regression problem: past behaviour is the input, future price is the output.",
-        "Multiple models are trained and the most accurate one is kept for prediction.",
-        "The winning model is then wrapped in a simple desktop application.",
+        "Several models are trained, scored on data they have never seen, and the best one is kept.",
+        "The winning model is connected to a live price feed and presented on a dashboard in rupees.",
     ]},
     {"kind": "bullets", "title": "Objectives", "bullets": [
-        "Prepare a clean monthly gold price dataset for the years 2000 to 2024.",
-        "Engineer features that capture the trend and the short-term momentum of prices.",
-        "Train and compare RandomForest, Linear Regression and Ridge models.",
-        "Measure accuracy using MAE, RMSE and R-squared against a naive baseline.",
-        "Provide a simple desktop GUI so anyone can run a prediction.",
+        "Build a clean monthly price dataset for gold and silver from the year 2000 up to today.",
+        "Read the live price of both metals and the US dollar to rupee rate from public APIs.",
+        "Engineer features that capture short-term momentum instead of raw price levels.",
+        "Compare Random Forest, Linear Regression and Ridge against a naive baseline.",
+        "Deliver an attractive dashboard showing present and future prices in Indian Rupees.",
+    ]},
+    {"kind": "bullets", "title": "Live Data Sources", "bullets": [
+        "api.gold-api.com/price/XAU  -  live gold price in US dollars per troy ounce.",
+        "api.gold-api.com/price/XAG  -  live silver price in US dollars per troy ounce.",
+        "open.er-api.com  -  today's US dollar to Indian rupee exchange rate.",
+        "All three are free public feeds, so no key or login is needed.",
+        "Conversion:  Rs per gram = US$ per ounce x USD-INR rate / 31.1035  (one troy ounce = 31.1035 g).",
     ]},
     {"kind": "bullets", "title": "Dataset", "bullets": [
-        "Monthly gold price in USD per troy ounce, from 2000 to 2024 (300 records).",
-        "Columns in the file: Date, Year, Month and Price.",
-        "Built from public annual-average anchors with a small momentum effect added.",
+        "Two files: gold_prices.csv and silver_prices.csv - one row per month since January 2000.",
+        "Columns: Date, Year, Month and Price (US dollars per troy ounce).",
+        "Yearly anchors are approximate LBMA annual averages, interpolated month to month with momentum.",
         "Model features: the last 3 monthly returns, plus the month and the year.",
+        "The live API price is appended as the latest point, so the forecast always starts from today.",
     ]},
     {"kind": "bullets", "title": "Methodology", "bullets": [
-        "The model predicts the month-to-month RETURN, not the raw price.",
-        "Why: tree models cannot guess a price higher than they have seen, so a rising trend breaks them.",
+        "The model predicts the month-to-month RETURN, never the raw price.",
+        "Why: a tree model cannot guess a price higher than anything it saw, so a 25 year rising trend breaks it.",
         "Price is rebuilt as   next price = last price x (1 + predicted return).",
         "Forecasting rolls forward one month at a time, feeding each answer back as the next input.",
-        "A chronological split is used - the last 60 months are kept for testing.",
+        "The split is chronological - the last 60 months are held out and never used for fitting.",
     ]},
     {"kind": "bullets", "title": "Technology Used", "bullets": [
         "Language: Python.",
         "Data handling: pandas and NumPy.",
-        "Models: scikit-learn - RandomForest, Linear Regression, Ridge.",
-        "Charts: Matplotlib.",
-        "Interface: Tkinter.   Save / Load: Joblib.",
+        "Models: scikit-learn - Random Forest, Linear Regression, Ridge.",
+        "Backend: Flask, serving one JSON summary to the page.",
+        "Frontend: Chart.js on a dark dashboard.   Model save / load: Joblib.",
     ]},
     {"kind": "table", "title": "Results"},
-    {"kind": "image", "title": "Application - Prediction", "image": SHOT_PREDICT,
-     "caption": "Desktop GUI: choose a horizon and forecast the gold price month by month."},
-    {"kind": "image", "title": "Application - Model Comparison", "image": SHOT_TRAIN,
-     "caption": "Train tab: accuracy table and the error comparison across all models."},
+    {"kind": "image", "title": "Application - Live Dashboard", "image": SHOT_LIVE,
+     "caption": "Today's live gold and silver price in rupees per gram, per kg and per 10 gram, "
+                "with the monthly history since 2000."},
+    {"kind": "image", "title": "Application - 12 Month Forecast", "image": SHOT_FORECAST,
+     "caption": "Solid line = actual price, dashed line = model forecast, plus the month by month "
+                "expected price in rupees."},
+    {"kind": "image", "title": "Application - Model Accuracy", "image": SHOT_ACCURACY,
+     "caption": "Error of every model on 60 unseen months, compared against the naive "
+                "'next month = this month' baseline."},
     {"kind": "bullets", "title": "Conclusion", "bullets": [
-        "RandomForest gave the best accuracy and clearly beat the naive baseline.",
-        "Predicting returns instead of raw prices made the models reliable on a trending series.",
-        "The Tkinter GUI turns the trained model into an easy-to-use forecasting tool.",
-        "The project demonstrates a complete Machine Learning pipeline from data to interface.",
+        "Random Forest gave the lowest error on both metals and beat the naive baseline.",
+        "Predicting returns instead of raw prices made the models reliable on a strongly trending series.",
+        "Live prices, rupee conversion and the forecast are combined in one self-explanatory dashboard.",
+        "The project demonstrates a complete Machine Learning pipeline - data, model, API, interface.",
     ]},
     {"kind": "bullets", "title": "Future Scope", "bullets": [
-        "Add real economic features such as inflation, USD index and interest rates.",
-        "Try deep-learning time-series models like LSTM for longer forecasts.",
-        "Connect a live gold price API so predictions always use current data.",
-        "Show a confidence range instead of a single predicted value.",
+        "Add real economic features such as inflation, the dollar index and interest rates.",
+        "Try deep-learning time-series models like LSTM for longer horizons.",
+        "Show a confidence range around the forecast instead of a single number.",
+        "Extend to other metals and to jewelers' rate cards used in the local market.",
+        "Publish the dashboard online with a scheduled daily data refresh.",
     ]},
     {"kind": "end"},
 ]
@@ -94,17 +114,20 @@ def make_results_chart():
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    names = [m[0] for m in MODELS]
-    maes = [m[1] for m in MODELS]
-    colors = ["#C9A227" if n == BEST else "#1F3864" for n in names]
-    fig, ax = plt.subplots(figsize=(5.2, 4.0), dpi=130)
-    bars = ax.bar(names, maes, color=colors)
-    ax.set_title("Mean Absolute Error by model", color="#1F3864", fontsize=13, fontweight="bold")
-    ax.set_ylabel("MAE (USD)")
-    ax.tick_params(axis="x", labelsize=8, rotation=12)
-    for b, v in zip(bars, maes):
-        ax.text(b.get_x() + b.get_width() / 2, v, "%.1f" % v, ha="center", va="bottom", fontsize=9)
-    ax.spines[["top", "right"]].set_visible(False)
+    names = [m[0].replace(" ", "\n") for m in MODELS]
+    fig, axes = plt.subplots(1, 2, figsize=(6.4, 4.2), dpi=130)
+    for ax, col, title, color in ((axes[0], 1, "Gold  (US$ / oz)", "#C9A227"),
+                                  (axes[1], 3, "Silver  (US$ / oz)", "#4A6FA5")):
+        vals = [m[col] for m in MODELS]
+        bars = ax.bar(range(len(vals)), vals,
+                      color=[color if m[0] == BEST else "#1F3864" for m in MODELS])
+        ax.set_xticks(range(len(vals)))
+        ax.set_xticklabels(names, fontsize=7)
+        ax.set_title("MAE - " + title, color="#1F3864", fontsize=11, fontweight="bold")
+        for b, v in zip(bars, vals):
+            ax.text(b.get_x() + b.get_width() / 2, v, "%.2f" % v,
+                    ha="center", va="bottom", fontsize=8)
+        ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
     fig.savefig(RESULTS_CHART, facecolor="white")
     plt.close(fig)
@@ -160,7 +183,7 @@ def render_pptx(path):
         tf = tb(slide, Inches(0.5), Inches(0.15), W - Inches(4.2), Inches(0.8), MSO_ANCHOR.MIDDLE)
         para(tf, title, 26, WHITE, bold=True, first=True)
         tf2 = tb(slide, W - Inches(4.0), Inches(0.15), Inches(3.5), Inches(0.8), MSO_ANCHOR.MIDDLE)
-        para(tf2, "Gold Price Prediction", 12, GOLD, bold=True, align=PP_ALIGN.RIGHT, first=True)
+        para(tf2, SHORT, 12, GOLD, bold=True, align=PP_ALIGN.RIGHT, first=True)
 
     def footer(slide, n):
         rect(slide, 0, H - Inches(0.42), W, Inches(0.42), NAVY)
@@ -179,7 +202,7 @@ def render_pptx(path):
             rect(slide, 0, Inches(4.35), W, Inches(0.06), GOLD)
             slide.shapes.add_picture(LOGO_NAVY, int((W - Inches(1.9)) / 2), Inches(0.6), Inches(1.9), Inches(1.9))
             tf = tb(slide, Inches(0.8), Inches(2.55), W - Inches(1.6), Inches(1.6))
-            para(tf, TITLE, 34, WHITE, bold=True, align=PP_ALIGN.CENTER, first=True, after=6)
+            para(tf, TITLE, 32, WHITE, bold=True, align=PP_ALIGN.CENTER, first=True, after=6)
             para(tf, "A Mini Project in Machine Learning", 18, GOLD, align=PP_ALIGN.CENTER)
             tf2 = tb(slide, Inches(1.0), Inches(4.7), W - Inches(2.0), Inches(2.4))
             para(tf2, "Submitted by", 13, GOLD, bold=True, align=PP_ALIGN.CENTER, first=True, after=2)
@@ -195,23 +218,22 @@ def render_pptx(path):
             tf = tb(slide, Inches(0.95), Inches(1.5), W - Inches(1.6), H - Inches(2.4), MSO_ANCHOR.MIDDLE)
             first = True
             for b in sl["bullets"]:
-                para(tf, "•   " + b, 20, DARK, first=first, after=22)
+                para(tf, "•   " + b, 19, DARK, first=first, after=18)
                 first = False
 
         elif kind == "table":
             header(slide, sl["title"])
             footer(slide, idx)
             rows = len(MODELS) + 1
-            gt = slide.shapes.add_table(rows, 4, Inches(0.7), Inches(1.9),
-                                        Inches(7.3), Inches(3.4)).table
-            hdr = ["Model", "MAE (USD)", "RMSE (USD)", "R-squared"]
-            for c, h in enumerate(hdr):
+            gt = slide.shapes.add_table(rows, 5, Inches(0.55), Inches(2.0),
+                                        Inches(8.1), Inches(3.2)).table
+            for c, h in enumerate(TABLE_HDR):
                 cell = gt.cell(0, c)
                 cell.fill.solid(); cell.fill.fore_color.rgb = NAVY
                 cell.text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
-                para(cell.text_frame, h, 15, WHITE, bold=True, align=PP_ALIGN.CENTER, first=True)
+                para(cell.text_frame, h, 12, WHITE, bold=True, align=PP_ALIGN.CENTER, first=True)
             for r, m in enumerate(MODELS, start=1):
-                vals = [m[0], "%.2f" % m[1], "%.2f" % m[2], "%.4f" % m[3]]
+                vals = [m[0], "%.2f" % m[1], "%.4f" % m[2], "%.2f" % m[3], "%.4f" % m[4]]
                 is_best = (m[0] == BEST)
                 for c, val in enumerate(vals):
                     cell = gt.cell(r, c)
@@ -219,12 +241,11 @@ def render_pptx(path):
                     cell.fill.fore_color.rgb = LIGHT if r % 2 else WHITE
                     cell.text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
                     col = GOLD if is_best else DARK
-                    para(cell.text_frame, val, 14, col, bold=is_best,
+                    para(cell.text_frame, val, 12, col, bold=is_best,
                          align=PP_ALIGN.LEFT if c == 0 else PP_ALIGN.CENTER, first=True)
-            slide.shapes.add_picture(RESULTS_CHART, Inches(8.4), Inches(1.7), Inches(4.3), Inches(3.6))
-            tf = tb(slide, Inches(0.7), Inches(5.7), Inches(7.3), Inches(1.0))
-            para(tf, "RandomForest wins on every metric. Test window: last 60 months (from Jan 2020). "
-                     "Lower MAE / RMSE and higher R-squared are better.", 12, MUT, first=True)
+            slide.shapes.add_picture(RESULTS_CHART, Inches(8.85), Inches(1.75), Inches(4.1), Inches(3.5))
+            tf = tb(slide, Inches(0.55), Inches(5.6), Inches(8.1), Inches(1.2))
+            para(tf, NOTE, 12, MUT, first=True)
 
         elif kind == "image":
             header(slide, sl["title"])
@@ -294,7 +315,7 @@ def render_pdf(path):
         c.setFillColor(WHITE); c.setFont("Helvetica-Bold", 24)
         c.drawString(0.5 * inch, PH - 0.68 * inch, title)
         c.setFillColor(GOLD); c.setFont("Helvetica-Bold", 12)
-        c.drawRightString(PW - 0.5 * inch, PH - 0.66 * inch, "Gold Price Prediction")
+        c.drawRightString(PW - 0.5 * inch, PH - 0.66 * inch, SHORT)
 
     def footer(n):
         c.setFillColor(NAVY); c.rect(0, 0, PW, 0.42 * inch, fill=1, stroke=0)
@@ -305,11 +326,7 @@ def render_pdf(path):
         c.drawRightString(PW - 0.3 * inch, 0.16 * inch, "Slide %d" % n)
 
     def bullets(items):
-        size, lead, gap = 19, 26, 16
-        all_lines = []
-        for b in items:
-            all_lines.append(("•  " + b))
-        # measure
+        size, lead, gap = 18, 25, 14
         block = []
         total = 0
         for b in items:
@@ -331,20 +348,21 @@ def render_pdf(path):
     # ---- title slide ----
     c.setFillColor(NAVY); c.rect(0, 0, PW, PH, fill=1, stroke=0)
     c.drawImage(LOGO_NAVY, (PW - 1.9 * inch) / 2, PH - 0.6 * inch - 1.9 * inch, 1.9 * inch, 1.9 * inch)
-    c.setFillColor(WHITE); c.setFont("Helvetica-Bold", 32)
-    c.drawCentredString(PW / 2, PH - 3.35 * inch, TITLE)
+    c.setFillColor(WHITE); c.setFont("Helvetica-Bold", 28)
+    for i, ln in enumerate(wrap(TITLE, "Helvetica-Bold", 28, PW - 2.4 * inch)):
+        c.drawCentredString(PW / 2, PH - 3.05 * inch - i * 36, ln)
     c.setFillColor(GOLD); c.setFont("Helvetica-Bold", 17)
-    c.drawCentredString(PW / 2, PH - 3.85 * inch, "A Mini Project in Machine Learning")
-    c.setFillColor(GOLD); c.rect(0, PH - 4.2 * inch, PW, 0.05 * inch, fill=1, stroke=0)
+    c.drawCentredString(PW / 2, PH - 4.25 * inch, "A Mini Project in Machine Learning")
+    c.setFillColor(GOLD); c.rect(0, PH - 4.6 * inch, PW, 0.05 * inch, fill=1, stroke=0)
     c.setFillColor(GOLD); c.setFont("Helvetica-Bold", 13)
-    c.drawCentredString(PW / 2, PH - 4.7 * inch, "Submitted by")
+    c.drawCentredString(PW / 2, PH - 5.0 * inch, "Submitted by")
     c.setFillColor(WHITE); c.setFont("Helvetica-Bold", 22)
-    c.drawCentredString(PW / 2, PH - 5.15 * inch, "%s  (%s)" % (STUDENT, ROLL))
+    c.drawCentredString(PW / 2, PH - 5.45 * inch, "%s  (%s)" % (STUDENT, ROLL))
     c.setFont("Helvetica", 14)
-    c.drawCentredString(PW / 2, PH - 5.7 * inch, "Project Guide:  %s" % GUIDE)
-    c.drawCentredString(PW / 2, PH - 6.05 * inch, COLLEGE)
+    c.drawCentredString(PW / 2, PH - 6.0 * inch, "Project Guide:  %s" % GUIDE)
+    c.drawCentredString(PW / 2, PH - 6.35 * inch, COLLEGE)
     c.setFillColor(GOLD); c.setFont("Helvetica", 12)
-    c.drawCentredString(PW / 2, PH - 6.4 * inch, DEPT)
+    c.drawCentredString(PW / 2, PH - 6.7 * inch, DEPT)
     c.showPage()
 
     idx = 2
@@ -357,16 +375,17 @@ def render_pdf(path):
             c.showPage(); idx += 1
         elif kind == "table":
             header(sl["title"]); footer(idx)
-            data = [["Model", "MAE (USD)", "RMSE (USD)", "R-squared"]]
+            data = [TABLE_HDR]
             for m in MODELS:
-                data.append([m[0], "%.2f" % m[1], "%.2f" % m[2], "%.4f" % m[3]])
-            t = Table(data, colWidths=[2.4 * inch, 1.4 * inch, 1.5 * inch, 1.5 * inch],
-                      rowHeights=[0.6 * inch] + [0.55 * inch] * len(MODELS))
+                data.append([m[0], "%.2f" % m[1], "%.4f" % m[2], "%.2f" % m[3], "%.4f" % m[4]])
+            t = Table(data, colWidths=[1.9 * inch, 1.7 * inch, 1.2 * inch, 1.8 * inch, 1.2 * inch],
+                      rowHeights=[0.75 * inch] + [0.55 * inch] * len(MODELS))
             style = [
                 ("BACKGROUND", (0, 0), (-1, 0), NAVY),
                 ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 12),
+                ("FONTSIZE", (0, 0), (-1, 0), 10),
+                ("FONTSIZE", (0, 1), (-1, -1), 12),
                 ("FONTNAME", (0, 1), (0, 1), "Helvetica-Bold"),
                 ("TEXTCOLOR", (0, 1), (0, 1), GOLD),
                 ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, LIGHT]),
@@ -376,16 +395,15 @@ def render_pdf(path):
                 ("LEFTPADDING", (0, 0), (-1, -1), 8),
             ]
             t.setStyle(TableStyle(style))
-            tw, th = t.wrap(7.3 * inch, 4 * inch)
-            t.drawOn(c, 0.7 * inch, PH - 1.4 * inch - th)
-            c.drawImage(RESULTS_CHART, 8.5 * inch, PH - 1.6 * inch - 3.6 * inch,
-                        4.2 * inch, 3.6 * inch)
-            note = wrap("RandomForest wins on every metric. Test window: last 60 months (from Jan 2020). "
-                        "Lower MAE / RMSE and higher R-squared are better.", "Helvetica-Oblique", 11, 7.3 * inch)
+            tw, th = t.wrap(8.0 * inch, 4 * inch)
+            t.drawOn(c, 0.55 * inch, PH - 1.5 * inch - th)
+            c.drawImage(RESULTS_CHART, 8.85 * inch, PH - 1.7 * inch - 3.5 * inch,
+                        4.1 * inch, 3.5 * inch)
+            note = wrap(NOTE, "Helvetica-Oblique", 11, 8.0 * inch)
             c.setFillColor(MUT); c.setFont("Helvetica-Oblique", 11)
-            ny = PH - 1.4 * inch - th - 0.5 * inch
+            ny = PH - 1.5 * inch - th - 0.5 * inch
             for ln in note:
-                c.drawString(0.7 * inch, ny, ln); ny -= 15
+                c.drawString(0.55 * inch, ny, ln); ny -= 15
             c.showPage(); idx += 1
         elif kind == "image":
             header(sl["title"]); footer(idx)

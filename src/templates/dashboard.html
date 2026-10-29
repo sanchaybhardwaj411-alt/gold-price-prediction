@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gold &amp; Silver Price Predictor - Live Dashboard</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131d30; --panel2:#18243c; --line:#243450;
+    --text:#eaf0fb; --muted:#93a4c2; --gold:#e3b850; --silver:#aec4dc;
+    --green:#3ddc97; --red:#ff6b6b; --blue:#5b9dff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 15% -10%,#16244100,#0b1220),var(--bg);
+       color:var(--text);font-family:"Segoe UI",Roboto,Arial,sans-serif;font-size:14px}
+  h1,h2,h3{margin:0;font-weight:600}
+  a{color:var(--blue)}
+
+  .topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+          padding:18px 28px;background:linear-gradient(90deg,#101a2e,#16233d 60%,#1b2c4a);
+          border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  .brand{display:flex;align-items:center;gap:14px}
+  .coin{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:20px;
+        background:radial-gradient(circle at 32% 30%,#ffe391,#d3a02f 65%,#8a6318);
+        color:#2a2008;font-weight:700;box-shadow:0 0 0 3px #1d2a45,0 6px 18px rgba(0,0,0,.5)}
+  .brand h1{font-size:20px;letter-spacing:.2px}
+  .brand p{margin:2px 0 0;color:var(--muted);font-size:12.5px}
+  .status{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .badge{padding:5px 12px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.6px}
+  .badge.live{background:rgba(61,220,151,.14);color:var(--green);border:1px solid rgba(61,220,151,.4)}
+  .badge.off{background:rgba(255,107,107,.14);color:var(--red);border:1px solid rgba(255,107,107,.4)}
+  .badge .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor;
+              margin-right:6px;animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 12px;
+        font-size:12.5px;color:var(--muted)}
+  .chip b{color:var(--text)}
+  button{cursor:pointer;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+         border-radius:10px;padding:7px 14px;font-size:13px}
+  button:hover{border-color:var(--gold);color:var(--gold)}
+
+  main{padding:22px 28px 40px;max-width:1400px;margin:0 auto}
+  .help{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:20px}
+  .help div{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--gold);
+            border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--muted);line-height:1.5}
+  .help div b{color:var(--text);display:block;margin-bottom:2px;font-size:13px}
+
+  .headline{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--blue);
+            border-radius:10px;padding:11px 14px;margin-bottom:16px;font-size:13px;color:var(--muted);
+            line-height:1.6}
+  .headline b{color:var(--text)}
+
+  .banner{background:rgba(255,107,107,.12);border:1px solid rgba(255,107,107,.4);color:#ffd0d0;
+          padding:12px 16px;border-radius:12px;margin-bottom:18px}
+  .hidden{display:none !important}
+
+  .grid{display:grid;gap:18px}
+  .two{grid-template-columns:1fr 1fr}
+  @media(max-width:1080px){.two{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+  .phead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .phead h2{font-size:15.5px}
+  .phead .sub{color:var(--muted);font-size:12px}
+  .ranges button{padding:5px 11px;font-size:12px;margin-left:6px}
+  .ranges button.on{border-color:var(--gold);color:var(--gold);background:rgba(227,184,80,.1)}
+
+  .metal{position:relative;overflow:hidden}
+  .metal.gold{border-top:3px solid var(--gold)}
+  .metal.silver{border-top:3px solid var(--silver)}
+  .mname{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);
+         text-transform:uppercase;letter-spacing:1.4px}
+  .mname .tag{font-size:11px;background:var(--panel2);border:1px solid var(--line);
+              padding:2px 8px;border-radius:6px;letter-spacing:.4}
+  .big{font-size:40px;font-weight:700;margin:12px 0 2px;letter-spacing:-1px}
+  .metal.gold .big{color:var(--gold)}
+  .metal.silver .big{color:var(--silver)}
+  .big span{font-size:16px;color:var(--muted);font-weight:500;letter-spacing:0}
+  .subprice{color:var(--muted);font-size:13px}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .stat{flex:1;min-width:130px;background:var(--panel2);border:1px solid var(--line);
+        border-radius:12px;padding:10px 12px}
+  .stat .k{font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+  .stat .v{font-size:17px;font-weight:600;margin-top:4px}
+  .up{color:var(--green)} .down{color:var(--red)}
+
+  .chart{position:relative;height:340px}
+  .chart.small{height:280px}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  thead th{color:var(--muted);font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.6px}
+  tbody tr:hover{background:rgba(255,255,255,.03)}
+  td.hi{color:var(--gold);font-weight:600}
+  .best{color:var(--green);font-size:11px;border:1px solid rgba(61,220,151,.4);
+        padding:1px 7px;border-radius:999px;margin-left:6px}
+  .tag{font-size:10.5px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);
+       padding:1px 7px;border-radius:6px;letter-spacing:.4px}
+  tbody tr.sel{background:rgba(227,184,80,.05)}
+
+  footer{padding:18px 28px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);
+         text-align:center;line-height:1.7}
+  .load{padding:60px;text-align:center;color:var(--muted);font-size:15px}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="coin">&#8377;</div>
+    <div>
+      <h1>Gold &amp; Silver Price Predictor</h1>
+      <p>Live prices + machine learning forecast &middot; B.S.A. College of Engineering &amp; Technology, Mathura</p>
+    </div>
+  </div>
+  <div class="status">
+    <span id="badge" class="badge off"><span class="dot"></span>CONNECTING</span>
+    <span class="chip">USD / INR <b id="rate">--</b></span>
+    <span class="chip">Updated <b id="updated">--:--:--</b></span>
+    <button id="refreshBtn">Refresh now</button>
+  </div>
+</header>
+
+<main>
+  <div id="loading" class="load">Loading live prices from the market feed...</div>
+  <div id="content" class="hidden">
+
+    <div id="offline" class="banner hidden"></div>
+
+    <div class="help">
+      <div><b>1. Live prices</b>Gold and silver are fetched from a public market API right now,
+        converted with today's USD to INR rate and shown per gram and per kg.</div>
+      <div><b>2. Future prices</b>The trained model predicts the next month's return, then rolls it
+        forward 12 months. Solid line = actual, dashed line = AI forecast.</div>
+      <div><b>3. How good is it</b>Accuracy is measured on the last 60 months the model has never
+        seen, and compared against a plain "same as last month" baseline.</div>
+    </div>
+
+    <section class="grid two" id="liveCards"></section>
+
+    <section class="panel" style="margin-top:18px">
+      <div class="phead">
+        <div>
+          <h2>Price history &amp; today</h2>
+          <div class="sub" id="histNote"></div>
+        </div>
+        <div class="ranges">
+          <button data-y="1">1Y</button><button data-y="3">3Y</button>
+          <button data-y="5">5Y</button><button data-y="0" class="on">All</button>
+        </div>
+      </div>
+      <div class="chart"><canvas id="histChart"></canvas></div>
+    </section>
+
+    <section class="panel" style="margin-top:18px">
+      <div class="phead">
+        <div>
+          <h2>AI forecast - next 12 months</h2>
+          <div class="sub">Predicted prices in Indian Rupees, starting from today's live price</div>
+        </div>
+      </div>
+      <div id="fcHeadline" class="headline"></div>
+      <div class="grid two">
+        <div class="chart small"><canvas id="fcGold"></canvas></div>
+        <div class="chart small"><canvas id="fcSilver"></canvas></div>
+      </div>
+      <div id="fcTables" class="grid two" style="margin-top:18px"></div>
+    </section>
+
+    <section class="panel" style="margin-top:18px">
+      <div class="phead">
+        <div>
+          <h2>Model accuracy</h2>
+          <div class="sub" id="modelNote"></div>
+        </div>
+      </div>
+      <div class="grid two" id="accTables"></div>
+      <div class="grid two" style="margin-top:18px">
+        <div class="chart small"><canvas id="maeGold"></canvas></div>
+        <div class="chart small"><canvas id="maeSilver"></canvas></div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  Built by <b>Sanchay Bhardwaj</b> (Roll No. 2300650100104), CSE &middot; Project guide:
+  <b>Mrs. Ashna Thakur</b><br>
+  Prices from api.gold-api.com and open.er-api.com &middot; Forecast generated locally by scikit-learn
+  &middot; Educational project only, not investment advice.
+</footer>
+
+<script src="/static/chart.umd.min.js"></script>
+<script>
+let D=null, charts={}, histYears=0;
+
+const nf=(n,d=0)=>Number(n).toLocaleString('en-IN',{minimumFractionDigits:d,maximumFractionDigits:d});
+const rs=n=>'\u20B9'+nf(n);
+const rs2=n=>'\u20B9'+nf(n,2);
+const DEC={gold:0,silver:2};          // silver is a small number, show paise
+const arrow=v=>v===null?'':(v>=0?'&#9650; ':'&#9660; ')+Math.abs(v)+'%';
+const cls=v=>v===null?'':(v>=0?'up':'down');
+
+Chart.defaults.color='#93a4c2';
+Chart.defaults.borderColor='rgba(255,255,255,.06)';
+Chart.defaults.font.family='"Segoe UI",Roboto,Arial,sans-serif';
+
+function axis(label){
+  return {title:{display:true,text:label},grid:{color:'rgba(255,255,255,.05)'},
+          ticks:{callback:v=>'\u20B9'+nf(v)}};
+}
+function baseOpts(unit){
+  return {responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{labels:{boxWidth:12,padding:16}},
+      tooltip:{backgroundColor:'#0f1830',borderColor:'#243450',borderWidth:1,padding:10,
+        callbacks:{label:c=>c.dataset.label+': \u20B9'+nf(c.parsed.y,2)+unit}}},
+    scales:{y:axis('\u20B9 / gram')}};
+}
+
+function liveCards(){
+  let h='';
+  for(const m of ['gold','silver']){
+    const b=D.metals[m], L=b.live||{};
+    h+=`<div class="panel metal ${m}">
+      <div class="mname">${m==='gold'?'24K Gold':'Silver'} <span class="tag">per gram</span>
+        <span class="tag">${D.status==='live'?'live feed':'cached'}</span></div>
+      <div class="big">${L.inr_gram?'\u20B9'+nf(L.inr_gram,DEC[m]):'--'} <span>/ gram</span></div>
+      <div class="subprice">${L.inr_gram?rs(L.inr_kg)+' per kilogram &middot; $'+nf(L.usd_ounce,2)+' per troy ounce':'waiting for the price feed'}</div>
+      <div class="stats">
+        <div class="stat"><div class="k">Last 1 month</div>
+          <div class="v ${cls(L.month_change_pct)}">${L.month_change_pct!==undefined?arrow(L.month_change_pct):'--'}</div></div>
+        <div class="stat"><div class="k">Last 12 months</div>
+          <div class="v ${cls(L.year_change_pct)}">${L.year_change_pct!==undefined?arrow(L.year_change_pct):'--'}</div></div>
+        <div class="stat"><div class="k">10 gram (2 tola)</div>
+          <div class="v">${L.inr_gram?rs(L.inr_gram*10):'--'}</div></div>
+      </div>
+    </div>`;
+  }
+  document.getElementById('liveCards').innerHTML=h;
+}
+
+function historyChart(){
+  const g=D.metals.gold.history, s=D.metals.silver.history;
+  let n=g.dates.length;
+  if(histYears>0) n=Math.min(n, histYears*12+1);
+  const labels=g.dates.slice(-n);
+  const cfg={type:'line',
+    data:{labels:labels,datasets:[
+      {label:'Gold \u20B9/g',data:g.inr_gram.slice(-n),borderColor:'#e3b850',
+       backgroundColor:'rgba(227,184,80,.14)',fill:true,borderWidth:2,pointRadius:0,tension:.25,yAxisID:'y'},
+      {label:'Silver \u20B9/g',data:s.inr_gram.slice(-n),borderColor:'#aec4dc',
+       backgroundColor:'rgba(174,196,220,.10)',fill:false,borderWidth:2,pointRadius:0,tension:.25,yAxisID:'y1'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{boxWidth:12,padding:16}},
+        tooltip:{backgroundColor:'#0f1830',borderColor:'#243450',borderWidth:1,
+          callbacks:{label:c=>c.dataset.label+': \u20B9'+nf(c.parsed.y,2)}}},
+      scales:{y:{...axis('gold \u20B9 per gram'),position:'left'},
+              y1:{title:{display:true,text:'silver \u20B9 per gram'},position:'right',grid:{drawOnChartArea:false},
+                  ticks:{callback:v=>'\u20B9'+nf(v)}},
+              x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{maxTicksLimit:14}}}}};
+  if(charts.hist) charts.hist.destroy();
+  charts.hist=new Chart(document.getElementById('histChart'),cfg);
+}
+
+function forecastChart(id,metal,color){
+  const b=D.metals[metal], live=b.live, fc=b.forecast;
+  if(!live||!fc.length) return;
+  const hist=b.history.dates.slice(-13), histP=b.history.inr_gram.slice(-13);
+  const labels=hist.concat(fc.map(r=>r.month));
+  const actual=histP.concat(new Array(fc.length).fill(null));
+  const pred=new Array(histP.length-1).fill(null).concat([histP[histP.length-1]], fc.map(r=>r.inr_gram));
+  const nowIdx=histP.length-1;
+  const cfg={type:'line',
+    data:{labels:labels,datasets:[
+      {label:'Actual',data:actual,borderColor:color,borderWidth:2,pointRadius:0,tension:.25,fill:true,
+       backgroundColor:'rgba(255,255,255,.04)'},
+      {label:'Forecast',data:pred,borderColor:'#5b9dff',borderWidth:2,borderDash:[6,4],
+       pointRadius:labels.map((_,i)=>i===nowIdx?4:0),tension:.25}
+    ]},
+    options:Object.assign(baseOpts(' per gram'),
+      {scales:{y:axis('\u20B9 / gram'),x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{maxTicksLimit:12}}}})};
+  if(charts[id]) charts[id].destroy();
+  charts[id]=new Chart(document.getElementById(id),cfg);
+}
+
+function forecastTable(metal){
+  const fc=D.metals[metal].forecast;
+  if(!fc.length) return '';
+  const pick=i=>fc[i];
+  return `<div><div class="phead"><h3>${metal==='gold'?'Gold':'Silver'} - expected price</h3></div>
+    <table><thead><tr><th>Month</th><th>\u20B9 / gram</th><th>\u20B9 / kg</th><th>US$ / oz</th></tr></thead><tbody>
+    ${fc.map((r,i)=>`<tr class="${[0,2,5,11].includes(i)?'sel':''}">
+        <td>${r.month}${[0,2,5,11].includes(i)?' <span class="tag">key</span>':''}</td>
+        <td class="${i===11?'hi':''}">${rs2(r.inr_gram)}</td><td>${rs(r.inr_kg)}</td>
+        <td>$${nf(r.usd_ounce,2)}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="sub" style="color:var(--muted);font-size:12px;margin-top:8px">
+      After 1 month: <b>${rs2(pick(0).inr_gram)}</b> &middot; after 6 months: <b>${rs2(pick(5).inr_gram)}</b>
+      &middot; after 12 months: <b class="hi">${rs2(pick(11).inr_gram)}</b> per gram.</div></div>`;
+}
+
+function pretty(name){
+  return name.replace('Regression',' Regression').replace('RandomForest','Random Forest');
+}
+function orderScores(M){
+  // best model first, the Naive baseline last - that is the story to tell
+  const keys=Object.keys(M.scores).filter(k=>k!==M.best_model && k!=='Naive');
+  return [M.best_model].concat(keys, M.scores.Naive?['Naive']:[]);
+}
+function monthName(iso){
+  const d=new Date(iso);
+  return d.toLocaleString('en',{month:'short'})+' '+d.getFullYear();
+}
+
+function accTable(metal){
+  const M=D.metrics[metal];
+  if(!M) return '';
+  const rate=D.usd_inr||1;
+  const rows=orderScores(M).map(name=>{
+    const sc=M.scores[name];
+    const inr=sc.MAE*rate/31.1035;
+    const tag=name===M.best_model?'<span class="best">best</span>':'';
+    return `<tr><td>${pretty(name)}${tag}</td><td>${nf(sc.MAE,2)}</td>
+            <td>${nf(inr,inr<10?2:0)}</td><td>${nf(sc.RMSE,2)}</td>
+            <td>${sc.R2.toFixed(4)}</td></tr>`;
+  }).join('');
+  return `<div><div class="phead"><h3>${metal==='gold'?'Gold':'Silver'} - test results</h3>
+      <div class="sub">tested on the last 60 months (from ${monthName(M.test_period)})</div></div>
+    <table><thead><tr><th>Model</th><th>MAE US$/oz</th><th>MAE \u20B9/g</th>
+      <th>RMSE US$/oz</th><th>R2</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="sub" style="color:var(--muted);font-size:12px;margin-top:8px">
+      Trained on ${M.trained_on_rows} monthly rows. Errors are per troy ounce in US dollars and per gram in rupees.</div>
+  </div>`;
+}
+
+function accCharts(){
+  [['maeGold','gold','#e3b850'],['maeSilver','silver','#aec4dc']].forEach(([id,metal,color])=>{
+    const M=D.metrics[metal];
+    if(!M) return;
+    const names=orderScores(M).map(pretty);
+    const mae=orderScores(M).map(n=>M.scores[n].MAE);
+    const bg=orderScores(M).map(n=>n===M.best_model?color:'rgba(147,164,194,.35)');
+    if(charts[id]) charts[id].destroy();
+    charts[id]=new Chart(document.getElementById(id),{
+      type:'bar',
+      data:{labels:names,datasets:[{label:'MAE in US$ / oz',data:mae,backgroundColor:bg,
+             borderColor:color,borderWidth:1,borderRadius:4}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},
+          title:{display:true,text:(metal==='gold'?'Gold':'Silver')+
+                 ' - mean absolute error (lower is better)'},
+          tooltip:{backgroundColor:'#0f1830',borderColor:'#243450',borderWidth:1,
+            callbacks:{label:c=>'MAE: $'+nf(c.parsed.x,2)+' / oz'}}},
+        scales:{x:{grid:{color:'rgba(255,255,255,.05)'}},y:{grid:{display:false}}}}});
+  });
+}
+
+function fcHeadline(){
+  const el=document.getElementById('fcHeadline');
+  const g=D.metals.gold, s=D.metals.silver;
+  if(!g.live||!s.live||!g.forecast.length||!s.forecast.length){ el.innerHTML=''; return; }
+  const last=g.forecast[g.forecast.length-1], lasts=s.forecast[s.forecast.length-1];
+  const pct=(L,F)=>{const v=(F.inr_gram/L.inr_gram-1)*100; return (v>=0?'+':'')+v.toFixed(1)+'%';};
+  el.innerHTML=`In one line: right now 1 gram of gold costs <b>${rs2(g.live.inr_gram)}</b> and silver costs `+
+    `<b>${rs2(s.live.inr_gram)}</b>. By <b>${last.month}</b> the model expects gold at `+
+    `<b>${rs2(last.inr_gram)}</b> (${pct(g.live,last)}) and silver at <b>${rs2(lasts.inr_gram)}</b> `+
+    `(${pct(s.live,lasts)}) per gram. This is a statistical forecast for a college project, not a trading tip.`;
+}
+
+function render(){
+  liveCards(); historyChart();
+  fcHeadline();
+  forecastChart('fcGold','gold','#e3b850');
+  forecastChart('fcSilver','silver','#aec4dc');
+  document.getElementById('fcTables').innerHTML=
+    forecastTable('gold')+forecastTable('silver');
+  document.getElementById('accTables').innerHTML=
+    accTable('gold')+accTable('silver');
+  accCharts();
+  document.getElementById('histNote').innerHTML=D.rupee_note;
+  const gm=D.metrics.gold;
+  document.getElementById('modelNote').innerHTML=
+    gm?('Best model: <b>'+pretty(gm.best_model)+'</b>, chosen by the lowest error on 60 months it never saw.'):'';
+}
+
+async function load(force){
+  const r=await fetch(force?'/api/refresh':'/api/summary');
+  D=await r.json();
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('content').classList.remove('hidden');
+  const b=document.getElementById('badge');
+  if(D.status==='live'){
+    b.className='badge live'; b.innerHTML='<span class="dot"></span>LIVE';
+    document.getElementById('offline').classList.add('hidden');
+  }else{
+    b.className='badge off'; b.innerHTML='<span class="dot"></span>OFFLINE - showing cached prices';
+    const o=document.getElementById('offline');
+    o.classList.remove('hidden');
+    o.innerHTML='<b>Internet feed not reachable.</b> The dashboard is showing the last prices it could fetch. '+
+                'Check your connection and press Refresh now.';
+  }
+  document.getElementById('rate').textContent=D.usd_inr?nf(D.usd_inr,2):'--';
+  document.getElementById('updated').textContent=D.fetched_at?D.fetched_at.split(' ')[1]:'--';
+  render();
+}
+
+document.getElementById('refreshBtn').onclick=()=>load(true);
+document.querySelectorAll('.ranges button').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('.ranges button').forEach(x=>x.classList.remove('on'));
+    btn.classList.add('on'); histYears=Number(btn.dataset.y); historyChart();
+  };
+});
+load(false);
+setInterval(()=>load(false),60000);   // keep the live numbers fresh
+</script>
+</body>
+</html>

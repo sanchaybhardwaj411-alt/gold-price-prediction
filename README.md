@@ -1,26 +1,49 @@
-# Gold Price Predictor (Machine Learning)
+# Gold & Silver Price Predictor - Live ML Dashboard
 
-A small desktop app that predicts the **monthly price of gold (USD per troy ounce)**
-using its own history. Built with Python, scikit-learn and a Tkinter interface.
+A web dashboard that shows **today's real gold and silver price in Indian Rupees**
+(fetched live from a public API) and a **12 month machine learning forecast** for
+both metals, generated on your own laptop.
 
-![Predict tab](docs/screenshot_predict.png)
+Built with Python, Flask, scikit-learn and Chart.js.
 
----
-
-## What it does
-
-- Trains regression models on monthly gold prices (2000 - 2024).
-- Compares **RandomForest**, **Linear Regression** and **Ridge**, keeps the best one.
-- Lets you pick a horizon (1 to 24 months) and forecasts the price forward.
-- Shows the numbers and a chart in a simple desktop GUI.
-
-![Train tab](docs/screenshot_train.png)
+![Dashboard](docs/dashboard_overview.png)
 
 ---
 
-## Tech stack
+## What you see on the screen
 
-`Python` · `pandas` · `NumPy` · `scikit-learn` · `Matplotlib` · `Tkinter` · `Joblib`
+| Panel | What it answers |
+|-------|-----------------|
+| **Live prices** | What does 1 gram / 1 kg / 10 gram (2 tola) cost right now, in Rs? How much has it moved in the last month and the last 12 months? |
+| **Price history** | Where the price came from - monthly data from the year 2000 up to today, gold and silver on one chart |
+| **AI forecast** | Where the model thinks the price is going over the next 12 months, in Rs per gram and per kg, with a month by month table |
+| **Model accuracy** | How far off the model was on 60 months it had never seen, and whether it beats a plain "next month = this month" guess |
+
+The prices refresh by themselves every 60 seconds, and **Refresh now** forces a new
+call to the API. If the internet goes off, the dashboard keeps working on the last
+prices it managed to fetch and says so in a red banner.
+
+---
+
+## Where the live data comes from
+
+No API key and no login is needed for any of these:
+
+| Feed | Used for |
+|------|----------|
+| `api.gold-api.com/price/XAU` | gold price in US$ per troy ounce |
+| `api.gold-api.com/price/XAG` | silver price in US$ per troy ounce |
+| `open.er-api.com/v6/latest/USD` | today's US$ to Rs exchange rate |
+
+Market prices are quoted per troy ounce, jewellery is sold per gram, so the
+dashboard converts everything:
+
+```
+Rs per gram  =  US$ per ounce  x  USD-INR rate  /  31.1035
+```
+
+Historical prices in the chart are also shown in rupees, using **today's**
+exchange rate - that is stated on the chart so nobody is misled.
 
 ---
 
@@ -30,14 +53,19 @@ using its own history. Built with Python, scikit-learn and a Tkinter interface.
 # 1. install the libraries
 pip install -r requirements.txt
 
-# 2. train the model (saves files into model/)
-python src/train_model.py
-
-# 3. open the app
-python src/app.py
+# 2. start the dashboard (trains the models automatically on the first run)
+python src/dashboard.py
 ```
 
-You can retrain any time from the **Train Model** tab inside the app.
+Your browser opens `http://127.0.0.1:8000` by itself. Nothing is uploaded
+anywhere - the APIs are only read, and the forecasting runs locally.
+
+To rebuild everything from scratch:
+
+```bash
+python src/make_dataset.py    # regenerates data/gold_prices.csv and data/silver_prices.csv
+python src/train_model.py     # retrains both models and refreshes model/metrics.json
+```
 
 ---
 
@@ -46,64 +74,95 @@ You can retrain any time from the **Train Model** tab inside the app.
 ```
 Gold-Price-Prediction/
 ├─ data/
-│  └─ gold_prices.csv      # monthly gold price, 2000-2024
+│  ├─ gold_prices.csv        # monthly gold price in US$/oz, 2000 to last month
+│  ├─ silver_prices.csv      # same for silver
+│  └─ live_cache.json        # last fetched live prices (git-ignored)
 ├─ src/
-│  ├─ make_dataset.py      # builds the csv from public annual averages
-│  ├─ gold_model.py        # features + train + forecast (shared code)
-│  ├─ train_model.py       # trains, scores and saves the model
-│  └─ app.py               # the Tkinter desktop app
-├─ model/                  # trained files land here (git-ignored)
-├─ docs/                   # screenshots used in this README
+│  ├─ make_dataset.py        # builds both csvs from public annual averages
+│  ├─ live_prices.py         # calls the 3 APIs, converts to Rs, caches the result
+│  ├─ price_model.py         # features + training + forecasting (shared code)
+│  ├─ train_model.py         # trains gold and silver, writes model/metrics.json
+│  ├─ dashboard.py           # the Flask server and the /api/summary endpoint
+│  ├─ templates/dashboard.html   # the dark dashboard page (Chart.js)
+│  └─ static/chart.umd.min.js    # chart library, kept locally so the page works offline
+├─ model/                    # trained files land here (git-ignored)
+├─ docs/                     # screenshots and the project presentation
 ├─ requirements.txt
 └─ README.md
 ```
 
 ---
 
-## How it works
+## How the forecasting works
 
-The interesting part: the model does **not** predict the raw price. A tree model can
-never guess a price higher than anything it saw in training, so on a rising series it
-breaks down. Instead the model predicts the **month-to-month return** (a small, stable
-number), and the price is rebuilt as:
+The model does **not** predict the raw price. A tree model can never invent a price
+higher than the biggest one it saw in training, so on a 25 year rising series it
+collapses. Instead the model predicts the **month to month return**, which stays in
+a small stable range, and the price is rebuilt from the last known price:
 
 ```
 next_price = this_price * (1 + predicted_return)
 ```
 
-Features fed to the model: the last 3 monthly returns, plus the month and year.
-Forecasting is done one month at a time, feeding each answer back in as the next input.
+- **Features**: the last 3 monthly returns, plus the month and the year.
+- **Forecast**: predict one month, feed the answer back in, repeat 12 times.
+- **Seed**: the last real price is the **live API price**, so the forecast always
+  starts from today, not from the end of the training file.
+- **Validation**: the last 60 months are held back and never used for fitting, and
+  the split is chronological - no shuffling, no peeking at the future.
 
 ---
 
 ## Results
 
-One-step-ahead accuracy on the last 60 months (test window from Jan 2020):
+One-step-ahead accuracy on the 60 held out months (test window from Oct 2021),
+error measured in US$ per troy ounce:
 
-| Model            | MAE (USD) | RMSE (USD) | R²      |
-|------------------|-----------|------------|---------|
-| **RandomForest** | **32.71** | **44.47**  | 0.9613  |
-| LinearRegression | 32.91     | 44.60      | 0.9611  |
-| Ridge            | 33.33     | 45.50      | 0.9595  |
-| Naive baseline   | 36.14     | 47.97      | 0.9549  |
+**Gold**
 
-The models beat the naive "next month = this month" baseline, which is the point.
+| Model | MAE | RMSE | R² |
+|-------|-----|------|-----|
+| **Random Forest** | **44.34** | **73.44** | 0.9910 |
+| Linear Regression | 54.12 | 81.71 | 0.9889 |
+| Ridge | 53.54 | 81.69 | 0.9889 |
+| Naive baseline | 56.93 | 86.68 | 0.9875 |
+
+**Silver**
+
+| Model | MAE | RMSE | R² |
+|-------|-----|------|-----|
+| **Random Forest** | **0.54** | **0.72** | 0.9942 |
+| Linear Regression | 0.62 | 0.91 | 0.9909 |
+| Ridge | 0.64 | 0.94 | 0.9903 |
+| Naive baseline | 0.64 | 0.97 | 0.9897 |
+
+Both models beat the naive "next month = this month" guess, which is the only
+comparison that matters here. R² looks very close to 1 because a 25 year trend is
+easy to follow - the MAE against the baseline is the honest number.
+
+![Forecast](docs/dashboard_forecast.png)
+
+![Accuracy](docs/dashboard_accuracy.png)
 
 ---
 
 ## About the dataset
 
-`data/gold_prices.csv` is a **compiled sample** for a college demonstration. The yearly
-anchors are approximate LBMA annual averages taken from public market data, then
-interpolated month to month with a small momentum effect (see `make_dataset.py`).
-Verify against an official feed before using it for anything serious.
+`data/gold_prices.csv` and `data/silver_prices.csv` are **compiled for a college
+demonstration**. The yearly anchors are approximate LBMA annual averages taken from
+public market data; in between, the series is interpolated and given a small AR(1)
+momentum effect so short term patterns exist (see `src/make_dataset.py`). The
+*current* price on the other hand is completely real - it comes from the live API.
+Verify against an official feed before using any of this for anything serious.
 
 ---
 
 ## Disclaimer
 
-This is a student learning project. It is **not** financial advice.
+Student learning project. Prices are indicative and the forecast is statistical.
+**Not investment advice.**
 
 ---
 
-**B.S.A. College of Engineering & Technology, Mathura** — Computer Science & Engineering, Session 2026-27.
+**Sanchay Bhardwaj** · B.S.A. College of Engineering & Technology, Mathura ·
+Computer Science & Engineering, Session 2026-27 · Project guide: **Mrs. Ashna Thakur**
